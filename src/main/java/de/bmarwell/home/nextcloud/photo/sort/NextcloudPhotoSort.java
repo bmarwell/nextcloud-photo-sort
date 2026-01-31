@@ -87,10 +87,25 @@ public class NextcloudPhotoSort implements Callable<Integer> {
     boolean dryRun;
 
     // internal state
+    /**
+     * List of discovered files.
+     *
+     * <p>Using a synchronized list to ensure thread-safety when multiple virtual threads
+     * discover and add files to the list concurrently.</p>
+     */
     private final List<Path> files = Collections.synchronizedList(new ArrayList<>());
 
     private final AtomicInteger validFiles = new AtomicInteger(0);
 
+    /**
+     * Limits the number of concurrent CPU-intensive tasks.
+     *
+     * <p>CPU-intensive tasks like hashing or metadata extraction can lead to excessive
+     * context switching when too many are run in parallel, especially with virtual threads.
+     * We use a semaphore to limit the concurrency to the number of available processors
+     * minus one, ensuring the system remains responsive while utilizing most of the
+     * CPU capacity.</p>
+     */
     private final Semaphore semaphore = new Semaphore(Math.max(1, Runtime.getRuntime().availableProcessors() - 1));
 
     static void main(String[] args) {
@@ -144,7 +159,14 @@ public class NextcloudPhotoSort implements Callable<Integer> {
                         continue;
                     }
 
-                    tasks.add(scope.fork(() -> processFileAsync(nextFile)));
+                    tasks.add(scope.fork(() -> {
+                        this.semaphore.acquire();
+                        try {
+                            return processFileAsync(nextFile);
+                        } finally {
+                            this.semaphore.release();
+                        }
+                    }));
 
                     // We stop forking new tasks once we have submitted enough files that are likely to be valid.
                     // Note: validFiles is incremented in processFileAsync, so this limit is a bit "fuzzy"
@@ -169,7 +191,14 @@ public class NextcloudPhotoSort implements Callable<Integer> {
     /// @throws InterruptedException if move execution is interrupted
     private void performMoves(List<InOut> inOutTargets) throws InterruptedException {
         try (var moveScope = StructuredTaskScope.open()) {
-            inOutTargets.forEach(io -> moveScope.fork(() -> moveAsync(io)));
+            inOutTargets.forEach(io -> moveScope.fork(() -> {
+                this.semaphore.acquire();
+                try {
+                    return moveAsync(io);
+                } finally {
+                    this.semaphore.release();
+                }
+            }));
 
             moveScope.join();
         }
