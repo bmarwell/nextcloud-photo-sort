@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.Callable;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
@@ -90,6 +91,8 @@ public class NextcloudPhotoSort implements Callable<Integer> {
 
     private final AtomicInteger validFiles = new AtomicInteger(0);
 
+    private final Semaphore semaphore = new Semaphore(Math.max(1, Runtime.getRuntime().availableProcessors() - 1));
+
     static void main(String[] args) {
         CommandLine commandLine = new CommandLine(new NextcloudPhotoSort());
         int exitCode = commandLine.execute(args);
@@ -132,37 +135,31 @@ public class NextcloudPhotoSort implements Callable<Integer> {
     /// @throws InterruptedException if task execution is interrupted
     private List<InOut> collectTasks() throws InterruptedException {
         try (var scope = StructuredTaskScope.open()) {
-            final List<Path> filesToProcess = findFilesToProcess();
             final List<StructuredTaskScope.Subtask<InOut>> tasks = new ArrayList<>();
 
-            for (Path nextFile : filesToProcess) {
-                tasks.add(scope.fork(() -> processFileAsync(nextFile)));
+            try (Stream<Path> inputFiles = Files.list(this.inputDirectory)) {
+                Iterable<Path> iterable = inputFiles::iterator;
+                for (Path nextFile : iterable) {
+                    if (!Files.isRegularFile(nextFile) || !isMediaFile(nextFile)) {
+                        continue;
+                    }
 
-                // We stop forking new tasks once we have submitted enough files that are likely to be valid.
-                // Note: validFiles is incremented in processFileAsync, so this limit is a bit "fuzzy"
-                // due to concurrent execution, but it serves the purpose of limiting the work.
-                if (this.validFiles.get() >= this.maxFiles) {
-                    break;
+                    tasks.add(scope.fork(() -> processFileAsync(nextFile)));
+
+                    // We stop forking new tasks once we have submitted enough files that are likely to be valid.
+                    // Note: validFiles is incremented in processFileAsync, so this limit is a bit "fuzzy"
+                    // due to concurrent execution, but it serves the purpose of limiting the work.
+                    if (this.validFiles.get() >= this.maxFiles) {
+                        break;
+                    }
                 }
+            } catch (IOException ioException) {
+                throw new UncheckedIOException("Could not list files in " + this.inputDirectory, ioException);
             }
 
             scope.join();
 
             return tasks.stream().map(StructuredTaskScope.Subtask::get).toList();
-        }
-    }
-
-    /// Finds files in the input directory that are eligible for processing.
-    ///
-    /// @return a list of paths to regular media files
-    private List<Path> findFilesToProcess() {
-        try (Stream<Path> inputFiles = Files.list(this.inputDirectory)) {
-            return inputFiles
-                    .filter(Files::isRegularFile)
-                    .filter(NextcloudPhotoSort::isMediaFile)
-                    .toList();
-        } catch (IOException ioException) {
-            throw new UncheckedIOException("Could not list files in " + this.inputDirectory, ioException);
         }
     }
 

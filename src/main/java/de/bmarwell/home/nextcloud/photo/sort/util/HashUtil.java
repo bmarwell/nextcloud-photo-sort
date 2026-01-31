@@ -52,7 +52,13 @@ public final class HashUtil {
     /// @throws IOException if the file cannot be read
     static String calculateSha1Hash(Path inputFile) throws IOException {
         final MessageDigest sha1Digest = DigestUtils.getSha1Digest();
-        sha1Digest.update(Files.readAllBytes(inputFile));
+        try (var inputStream = Files.newInputStream(inputFile)) {
+            byte[] buffer = new byte[8_192];
+            int read;
+            while ((read = inputStream.read(buffer)) != -1) {
+                sha1Digest.update(buffer, 0, read);
+            }
+        }
         final byte[] digest = sha1Digest.digest();
         final String hexString = Hex.encodeHexString(digest);
 
@@ -73,9 +79,14 @@ public final class HashUtil {
     /// @return the first 8 characters of the XXH32 hash, or `null` if the input file is `null`
     /// @throws IOException if the file cannot be read
     static String calculateXx32Hash(Path inputFile) throws IOException {
-        byte[] bytes = Files.readAllBytes(inputFile);
         XXHash32 xxHash32 = new XXHash32();
-        xxHash32.update(bytes);
+        try (var inputStream = Files.newInputStream(inputFile)) {
+            byte[] buffer = new byte[8_192];
+            int read;
+            while ((read = inputStream.read(buffer)) != -1) {
+                xxHash32.update(buffer, 0, read);
+            }
+        }
         long raw = xxHash32.getValue();
         BigInteger unsigned32 = BigInteger.valueOf(raw).and(BigInteger.valueOf(0xFFFFFFFFL));
 
