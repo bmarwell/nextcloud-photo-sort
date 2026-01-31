@@ -10,19 +10,19 @@ import de.bmarwell.home.nextcloud.photo.sort.util.CreationDateUtil;
 import de.bmarwell.home.nextcloud.photo.sort.util.HashUtil;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine;
 import picocli.CommandLine.Model.CommandSpec;
@@ -62,8 +62,7 @@ public class NextcloudPhotoSort implements Callable<Integer> {
             names = {"-m", "--max"},
             required = true,
             description = """
-        Maximum number of files to process.
-        File without date are not counted towards this limit""",
+        Maximum number of files to process.""",
             defaultValue = "500")
     int maxFiles;
 
@@ -87,15 +86,7 @@ public class NextcloudPhotoSort implements Callable<Integer> {
     boolean dryRun;
 
     // internal state
-    /**
-     * List of discovered files.
-     *
-     * <p>Using a synchronized list to ensure thread-safety when multiple virtual threads
-     * discover and add files to the list concurrently.</p>
-     */
-    private final List<Path> files = Collections.synchronizedList(new ArrayList<>());
-
-    private final AtomicInteger validFiles = new AtomicInteger(0);
+    final AtomicInteger processedFilesCount = new AtomicInteger(0);
 
     /**
      * Limits the number of concurrent CPU-intensive tasks.
@@ -106,7 +97,8 @@ public class NextcloudPhotoSort implements Callable<Integer> {
      * minus one, ensuring the system remains responsive while utilizing most of the
      * CPU capacity.</p>
      */
-    private final Semaphore semaphore = new Semaphore(Math.max(1, Runtime.getRuntime().availableProcessors() - 1));
+    private final Semaphore semaphore =
+            new Semaphore(Math.max(1, Runtime.getRuntime().availableProcessors() - 1));
 
     static void main(String[] args) {
         CommandLine commandLine = new CommandLine(new NextcloudPhotoSort());
@@ -152,10 +144,14 @@ public class NextcloudPhotoSort implements Callable<Integer> {
         try (var scope = StructuredTaskScope.open()) {
             final List<StructuredTaskScope.Subtask<InOut>> tasks = new ArrayList<>();
 
-            try (Stream<Path> inputFiles = Files.list(this.inputDirectory)) {
-                Iterable<Path> iterable = inputFiles::iterator;
-                for (Path nextFile : iterable) {
-                    if (!Files.isRegularFile(nextFile) || !isMediaFile(nextFile)) {
+            try (DirectoryStream<Path> inputFiles = Files.newDirectoryStream(this.inputDirectory)) {
+                int forkedTasks = 0;
+                for (Path nextFile : inputFiles) {
+                    if (forkedTasks >= this.maxFiles) {
+                        break;
+                    }
+
+                    if (Files.isDirectory(nextFile) || !isMediaFile(nextFile)) {
                         continue;
                     }
 
@@ -168,12 +164,7 @@ public class NextcloudPhotoSort implements Callable<Integer> {
                         }
                     }));
 
-                    // We stop forking new tasks once we have submitted enough files that are likely to be valid.
-                    // Note: validFiles is incremented in processFileAsync, so this limit is a bit "fuzzy"
-                    // due to concurrent execution, but it serves the purpose of limiting the work.
-                    if (this.validFiles.get() >= this.maxFiles) {
-                        break;
-                    }
+                    forkedTasks++;
                 }
             } catch (IOException ioException) {
                 throw new UncheckedIOException("Could not list files in " + this.inputDirectory, ioException);
@@ -181,7 +172,10 @@ public class NextcloudPhotoSort implements Callable<Integer> {
 
             scope.join();
 
-            return tasks.stream().map(StructuredTaskScope.Subtask::get).toList();
+            return tasks.stream()
+                    .map(StructuredTaskScope.Subtask::get)
+                    .limit(this.maxFiles)
+                    .toList();
         }
     }
 
@@ -218,16 +212,27 @@ public class NextcloudPhotoSort implements Callable<Integer> {
         }
 
         final Path outPath = io.out().getParent();
+        final Path directoryToBeCreatedDisplay = this.outputDirectory.relativize(outPath);
+
+        if (this.dryRun) {
+            if (!Files.exists(outPath) && this.verbose) {
+                this.spec
+                        .commandLine()
+                        .getOut()
+                        .println("Would create directory [" + directoryToBeCreatedDisplay + "]");
+            }
+
+            if (this.verbose) {
+                this.spec.commandLine().getOut().println("Would move [" + io.in() + "] to [" + io.out() + "]");
+            }
+
+            return io;
+        }
 
         if (!Files.exists(outPath)) {
             try {
-                this.spec
-                        .commandLine()
-                        .getErr()
-                        .println("Creating directory [" + this.outputDirectory.relativize(outPath) + "]");
-                if (!this.dryRun) {
-                    Files.createDirectories(outPath);
-                }
+                this.spec.commandLine().getErr().println("Creating directory [" + directoryToBeCreatedDisplay + "]");
+                Files.createDirectories(outPath);
             } catch (IOException ioException) {
                 // log error and continue
                 this.spec.commandLine().getErr().println("Could not create directory [" + outPath + "].");
@@ -257,9 +262,7 @@ public class NextcloudPhotoSort implements Callable<Integer> {
             }
 
             try {
-                if (!this.dryRun) {
-                    Files.delete(io.in());
-                }
+                Files.delete(io.in());
             } catch (IOException ioex) {
                 this.spec
                         .commandLine()
@@ -272,15 +275,9 @@ public class NextcloudPhotoSort implements Callable<Integer> {
         }
 
         try {
-            if (!this.dryRun) {
-                Files.move(io.in(), io.out());
-            }
+            Files.move(io.in(), io.out());
             if (this.verbose) {
-                if (this.dryRun) {
-                    this.spec.commandLine().getOut().println("Would move [" + io.in() + "] to [" + io.out() + "].");
-                } else {
-                    this.spec.commandLine().getOut().println("Moved [" + io.in() + "] to [" + io.out() + "].");
-                }
+                this.spec.commandLine().getOut().println("Moved [" + io.in() + "] to [" + io.out() + "].");
             }
         } catch (IOException ioex) {
             this.spec
@@ -300,7 +297,8 @@ public class NextcloudPhotoSort implements Callable<Integer> {
     ///
     /// @param path the path to the file to process
     /// @return an [InOut] record representing the planned move
-    private InOut processFileAsync(Path path) {
+    InOut processFileAsync(Path path) {
+        this.processedFilesCount.incrementAndGet();
         try {
             final Metadata metadata = ImageMetadataReader.readMetadata(path.toFile());
             final @Nullable ZonedDateTime dateOriginalInstant = CreationDateUtil.getCreationDate(metadata);
@@ -310,8 +308,6 @@ public class NextcloudPhotoSort implements Callable<Integer> {
                 this.spec.commandLine().getErr().println("No creation date information for [" + path + "]");
                 return toUnsorted(path);
             }
-
-            this.validFiles.incrementAndGet();
 
             final Path targetPath = getTargetPath(path, dateOriginalInstant);
 
@@ -359,7 +355,7 @@ public class NextcloudPhotoSort implements Callable<Integer> {
                 .resolve(targetFileName);
     }
 
-    private InOut toUnsorted(Path path) {
+    InOut toUnsorted(Path path) {
         final Path unsortedDir = this.inputDirectory.resolve("unsorted");
         final Path targetFile = unsortedDir.resolve(path.getFileName());
 
@@ -368,13 +364,17 @@ public class NextcloudPhotoSort implements Callable<Integer> {
         return new InOut(path, targetFile, false);
     }
 
-    private static boolean isMediaFile(Path p) {
-        final String fileNameLower = p.toString().toLowerCase(Locale.ROOT);
+    private static final Set<String> MEDIA_EXTENSIONS = Set.of("jpg", "jpeg", "png", "mp4");
 
-        return fileNameLower.endsWith(".jpg")
-                || fileNameLower.endsWith(".jpeg")
-                || fileNameLower.endsWith(".png")
-                || fileNameLower.endsWith(".mp4");
+    private static boolean isMediaFile(Path p) {
+        final String fileName = p.getFileName().toString();
+        final int lastDot = fileName.lastIndexOf('.');
+        if (lastDot == -1) {
+            return false;
+        }
+
+        final String extension = fileName.substring(lastDot + 1).toLowerCase(Locale.ROOT);
+        return MEDIA_EXTENSIONS.contains(extension);
     }
 
     /**

@@ -117,4 +117,90 @@ class NextcloudPhotoSortTest {
         assertTrue(Files.exists(targetFile));
         assertTrue(Files.exists(sourceFile));
     }
+
+    @Test
+    void testCollectTasks_obeysMaxFiles() throws Exception {
+        // given
+        Path inputDir = tempDir.resolve("input-max");
+        Files.createDirectories(inputDir);
+        Path outputDir = tempDir.resolve("output-max");
+        Files.createDirectories(outputDir);
+
+        for (int i = 0; i < 10; i++) {
+            Files.writeString(inputDir.resolve("file" + i + ".jpg"), "content" + i);
+        }
+
+        NextcloudPhotoSort app = new NextcloudPhotoSort() {
+            @Override
+            Path getTargetPath(Path inputFile, ZonedDateTime dateOriginalInstant) {
+                return outputDir.resolve("sorted").resolve(inputFile.getFileName());
+            }
+
+            @Override
+            InOut processFileAsync(Path path) {
+                // Mock behavior to avoid actual metadata extraction
+                this.processedFilesCount.incrementAndGet();
+                return new InOut(path, outputDir.resolve("sorted").resolve(path.getFileName()), true);
+            }
+        };
+        // Set maxFiles to 5
+        new CommandLine(app).parseArgs("-i", inputDir.toString(), "-o", outputDir.toString(), "-m", "5");
+        app.spec = new CommandLine(app).getCommandSpec();
+
+        // when
+        app.call();
+
+        // then
+        // check how many files are in outputDir (recursively)
+        try (var stream = Files.walk(outputDir)) {
+            long count = stream.filter(Files::isRegularFile).count();
+            assertEquals(5, count, "Should have moved exactly 5 files");
+        }
+    }
+
+    @Test
+    void testCollectTasks_movesUnsortedFiles() throws Exception {
+        // given
+        Path inputDir = tempDir.resolve("input-unsorted");
+        Files.createDirectories(inputDir);
+        Path outputDir = tempDir.resolve("output-unsorted");
+        Files.createDirectories(outputDir);
+
+        // One file with date (mocked), 20 without
+        Files.writeString(inputDir.resolve("valid.jpg"), "valid");
+        for (int i = 0; i < 20; i++) {
+            Files.writeString(inputDir.resolve("invalid" + i + ".jpg"), "invalid" + i);
+        }
+
+        NextcloudPhotoSort app = new NextcloudPhotoSort() {
+            @Override
+            InOut processFileAsync(Path path) {
+                this.processedFilesCount.incrementAndGet();
+                if ("valid.jpg".equals(path.getFileName().toString())) {
+                    return new InOut(path, outputDir.resolve("2023/01/valid.jpg"), true);
+                } else {
+                    return toUnsorted(path);
+                }
+            }
+        };
+
+        // maxFiles = 5.
+        // It should fork at most 5 files.
+        new CommandLine(app).parseArgs("-i", inputDir.toString(), "-o", outputDir.toString(), "-m", "5");
+        app.spec = new CommandLine(app).getCommandSpec();
+
+        // when
+        app.call();
+
+        // then
+        // We expect EXACTLY 5 files to have been moved in total because of .limit(5)
+        try (var stream = Files.walk(outputDir)) {
+            long movedToOutput = stream.filter(Files::isRegularFile).count();
+            // Actually, some go to inputDir/unsorted
+            try (var stream2 = Files.walk(inputDir.resolve("unsorted"))) {
+                long movedToUnsorted = stream2.filter(Files::isRegularFile).count();
+                assertEquals(5, movedToOutput + movedToUnsorted, "Should have moved exactly 5 files in total");
+            }
+        }
+    }
 }

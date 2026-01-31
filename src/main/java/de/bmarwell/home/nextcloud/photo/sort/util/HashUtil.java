@@ -5,7 +5,6 @@ package de.bmarwell.home.nextcloud.photo.sort.util;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -53,7 +52,7 @@ public final class HashUtil {
     static String calculateSha1Hash(Path inputFile) throws IOException {
         final MessageDigest sha1Digest = DigestUtils.getSha1Digest();
         try (var inputStream = Files.newInputStream(inputFile)) {
-            byte[] buffer = new byte[8_192];
+            byte[] buffer = new byte[16_384];
             int read;
             while ((read = inputStream.read(buffer)) != -1) {
                 sha1Digest.update(buffer, 0, read);
@@ -81,26 +80,13 @@ public final class HashUtil {
     static String calculateXx32Hash(Path inputFile) throws IOException {
         XXHash32 xxHash32 = new XXHash32();
         try (var inputStream = Files.newInputStream(inputFile)) {
-            byte[] buffer = new byte[8_192];
+            byte[] buffer = new byte[16_384];
             int read;
             while ((read = inputStream.read(buffer)) != -1) {
                 xxHash32.update(buffer, 0, read);
             }
         }
         long raw = xxHash32.getValue();
-        BigInteger unsigned32 = BigInteger.valueOf(raw).and(BigInteger.valueOf(0xFFFFFFFFL));
-
-        String hex = unsigned32.toString(16).toLowerCase(Locale.ROOT);
-        String fileHash = String.format(Locale.ROOT, "%8s", hex).replace(' ', '0');
-
-        if (fileHash.isEmpty()) {
-            throw new IOException("could not calculate hash, empty xxh32 digest for file [" + inputFile + "]");
-        }
-
-        if (fileHash.length() >= 8) {
-            return fileHash.substring(0, 8);
-        }
-
-        return fileHash;
+        return String.format(Locale.ROOT, "%08x", raw & 0xFFFFFFFFL);
     }
 }
