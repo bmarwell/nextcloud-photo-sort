@@ -195,6 +195,10 @@ public class NextcloudPhotoSort implements Callable<Integer> {
 
         if (!Files.exists(outPath)) {
             try {
+                this.spec
+                        .commandLine()
+                        .getErr()
+                        .println("Creating directory [" + outPath.relativize(this.outputDirectory) + "]");
                 Files.createDirectories(outPath);
             } catch (IOException ioException) {
                 // log error and continue
