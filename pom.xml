@@ -54,7 +54,7 @@
     <maven.compiler.showWarnings>true</maven.compiler.showWarnings>
 
     <!-- 3rd party plugins -->
-    <plugin.spotless.version>3.2.0</plugin.spotless.version>
+    <plugin.spotless.version>3.2.1</plugin.spotless.version>
 
     <!-- test dependencies -->
     <dependency.junit5.version>6.0.2</dependency.junit5.version>
