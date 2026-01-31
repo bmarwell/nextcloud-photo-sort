@@ -1,0 +1,472 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!--
+  ~ Copyright (c) 2023.
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~ https://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>de.bmarwell.home</groupId>
+  <artifactId>nextcloud-photo-sort</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+  <name>Nextcloud Photo Sorter</name>
+  <description>Sort photos</description>
+
+  <inceptionYear>2026</inceptionYear>
+
+  <licenses>
+    <license>
+      <name>${project.primarylicense.name}</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+    <license>
+      <name>EUPL-1.2</name>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.primarylicense.name>Apache-2.0</project.primarylicense.name>
+    <jreleaser.project.copyright>${project.primarylicense.name}</jreleaser.project.copyright>
+    <!-- JDK & runtime -->
+    <java.version>25</java.version>
+
+    <project.java.mainClass>de.bmarwell.home.nextcloud.photo.sort.NextcloudPhotoSort</project.java.mainClass>
+
+    <maven.compiler.release>${java.version}</maven.compiler.release>
+    <maven.compiler.showDeprecation>true</maven.compiler.showDeprecation>
+    <maven.compiler.showWarnings>true</maven.compiler.showWarnings>
+
+    <!-- 3rd party plugins -->
+    <plugin.spotless.version>3.2.0</plugin.spotless.version>
+
+    <!-- test dependencies -->
+    <dependency.junit5.version>6.0.2</dependency.junit5.version>
+    <dependency.assertj.version>3.27.7</dependency.assertj.version>
+    <dependency.palantir.version>2.85.0</dependency.palantir.version>
+    <dependency.picocli.version>4.7.7</dependency.picocli.version>
+    <dependency.picocli-codegen.version>${dependency.picocli.version}</dependency.picocli-codegen.version>
+  </properties>
+
+  <developers>
+    <developer>
+      <id>bmarwell</id>
+      <name>Benjamin Marwell</name>
+    </developer>
+  </developers>
+
+  <scm>
+  </scm>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- 3rd party dependencies -->
+      <dependency>
+        <groupId>info.picocli</groupId>
+        <artifactId>picocli</artifactId>
+        <version>${dependency.picocli.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.drewnoakes</groupId>
+        <artifactId>metadata-extractor</artifactId>
+        <version>2.19.0</version>
+      </dependency>
+      <dependency>
+        <groupId>commons-codec</groupId>
+        <artifactId>commons-codec</artifactId>
+        <version>1.21.0</version>
+      </dependency>
+      <dependency>
+        <groupId>org.jspecify</groupId>
+        <artifactId>jspecify</artifactId>
+        <version>1.0.0</version>
+        <scope>compile</scope>
+      </dependency>
+
+      <!-- test dependencies -->
+      <dependency>
+        <groupId>org.junit.jupiter</groupId>
+        <artifactId>junit-jupiter-engine</artifactId>
+        <version>${dependency.junit5.version}</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.junit.jupiter</groupId>
+        <artifactId>junit-jupiter-api</artifactId>
+        <version>${dependency.junit5.version}</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.wiremock</groupId>
+        <artifactId>wiremock</artifactId>
+        <version>3.13.2</version>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>com.palantir.javaformat</groupId>
+        <artifactId>palantir-java-format</artifactId>
+        <version>${dependency.palantir.version}</version>
+      </dependency>
+
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <dependency>
+      <groupId>info.picocli</groupId>
+      <artifactId>picocli</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.drewnoakes</groupId>
+      <artifactId>metadata-extractor</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>commons-codec</groupId>
+      <artifactId>commons-codec</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.jspecify</groupId>
+      <artifactId>jspecify</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>3.6.2</version>
+        </plugin>
+
+        <plugin>
+          <artifactId>maven-clean-plugin</artifactId>
+          <version>3.5.0</version>
+        </plugin>
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-dependency-plugin</artifactId>
+          <version>3.9.0</version>
+        </plugin>
+
+        <plugin>
+          <artifactId>maven-resources-plugin</artifactId>
+          <version>3.4.0</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.14.1</version>
+          <configuration>
+            <compilerArgs>
+              <arg>-Xlint:all</arg>
+            </compilerArgs>
+            <enablePreview>true</enablePreview>
+          </configuration>
+        </plugin>
+        <plugin>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>3.5.4</version>
+          <configuration>
+            <argLine>--enable-preview</argLine>
+            <systemPropertyVariables>
+              <java.util.logging.config.file>src/test/resources/logging.properties</java.util.logging.config.file>
+            </systemPropertyVariables>
+          </configuration>
+        </plugin>
+        <plugin>
+          <artifactId>maven-failsafe-plugin</artifactId>
+          <version>3.5.4</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>3.5.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-war-plugin</artifactId>
+          <version>3.5.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-ear-plugin</artifactId>
+          <version>3.4.0</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-install-plugin</artifactId>
+          <version>3.1.4</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-deploy-plugin</artifactId>
+          <version>3.1.4</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-site-plugin</artifactId>
+          <version>3.21.0</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-project-info-reports-plugin</artifactId>
+          <version>3.9.0</version>
+        </plugin>
+
+        <!-- 3rd party plugins -->
+        <plugin>
+          <groupId>com.diffplug.spotless</groupId>
+          <artifactId>spotless-maven-plugin</artifactId>
+          <version>${plugin.spotless.version}</version>
+        </plugin>
+
+        <plugin>
+          <groupId>org.jacoco</groupId>
+          <artifactId>jacoco-maven-plugin</artifactId>
+          <version>0.8.14</version>
+        </plugin>
+
+        <plugin>
+          <groupId>org.jreleaser</groupId>
+          <artifactId>jreleaser-maven-plugin</artifactId>
+          <version>1.22.0</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>enforce-prerequisites</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireJavaVersion>
+                  <version>${java.version}</version>
+                </requireJavaVersion>
+                <requireMavenVersion>
+                  <version>3.9.12</version>
+                </requireMavenVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>${project.java.mainClass}</mainClass>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>copy-runtime-dependencies</id>
+            <goals>
+              <goal>copy-dependencies</goal>
+            </goals>
+            <phase>prepare-package</phase>
+            <configuration>
+              <includeScope>runtime</includeScope>
+              <prependGroupId>true</prependGroupId>
+              <useSubDirectoryPerScope>true</useSubDirectoryPerScope>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>default-format</id>
+            <phase>process-sources</phase>
+            <goals>
+              <goal>apply</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <formats>
+            <format>
+              <includes>
+                <include>*.adoc</include>
+                <include>*.md</include>
+                <include>*.xml</include>
+                <include>.gitignore</include>
+              </includes>
+              <!-- define the steps to apply to those files -->
+              <trimTrailingWhitespace/>
+              <endWithNewline/>
+              <indent>
+                <tabs>false</tabs>
+                <spaces>true</spaces>
+                <spacesPerTab>2</spacesPerTab>
+              </indent>
+            </format>
+          </formats>
+
+          <java>
+            <cleanthat>
+              <version>2.11</version>
+              <mutators>
+                <mutator>*</mutator>
+              </mutators>
+              <excludedMutators>
+                <excludedMutator>AvoidFileStream</excludedMutator>
+              </excludedMutators>
+            </cleanthat>
+
+            <importOrder/>
+            <removeUnusedImports/>
+
+            <palantirJavaFormat>
+              <version>${dependency.palantir.version}</version>
+            </palantirJavaFormat>
+
+            <licenseHeader>
+              <content><![CDATA[
+/*
+ * Copyright (C) Apache-2.0 OR EUPL-1.2.
+ */
+]]></content>
+            </licenseHeader>
+          </java>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>default-prepare-agent</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>default-report</id>
+            <goals>
+              <goal>report</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.jreleaser</groupId>
+        <artifactId>jreleaser-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>default-assemble</id>
+            <phase>package</phase>
+            <goals>
+              <goal>assemble</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <jreleaser>
+            <release>
+              <github>
+                <owner>bmarwell</owner>
+                <overwrite>true</overwrite>
+              </github>
+            </release>
+            <project>
+              <name>nexcloud-photo-sort</name>
+              <tags>
+                <tag>cli</tag>
+                <tag>inwx</tag>
+              </tags>
+              <stereotype>CLI</stereotype>
+              <languages>
+                <java>
+                  <!-- metadata extractor is not modularized yet -->
+                  <!--mainModule>de.bmarwell.home.nextcloud.photo.sort</mainModule-->
+                  <mainClass>${project.java.mainClass}</mainClass>
+                </java>
+              </languages>
+            </project>
+            <assemble>
+              <javaArchive>
+                <nexcloud-photo-sort>
+                  <active>ALWAYS</active>
+                  <exported>true</exported>
+                  <formats>
+                    <format>ZIP</format>
+                    <format>TAR_GZ</format>
+                  </formats>
+                  <options>
+                    <longFileMode>POSIX</longFileMode>
+                    <bigNumberMode>POSIX</bigNumberMode>
+                  </options>
+                  <mainJar>
+                    <path>${project.build.directory}/${project.artifactId}-${project.version}.jar</path>
+                  </mainJar>
+                  <jars>
+                    <jar>
+                      <pattern>${project.build.directory}/dependency/**/*.jar</pattern>
+                    </jar>
+                  </jars>
+                  <java>
+                    <jvmOptions>
+                      <universal>
+                        -Djava.net.useSystemProxies=true
+                        --enable-preview</universal>
+                    </jvmOptions>
+                  </java>
+                </nexcloud-photo-sort>
+              </javaArchive>
+            </assemble>
+          </jreleaser>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <source>25</source>
+          <target>25</target>
+          <compilerArgs>--enable-preview</compilerArgs>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>
