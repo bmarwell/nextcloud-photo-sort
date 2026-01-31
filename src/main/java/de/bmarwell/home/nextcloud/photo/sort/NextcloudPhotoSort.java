@@ -354,7 +354,7 @@ public class NextcloudPhotoSort implements Callable<Integer> {
         return new InOut(path, targetFile, false);
     }
 
-    private static final Set<String> MEDIA_EXTENSIONS = Set.of("jpg", "jpeg", "png", "mp4");
+    private static final Set<String> MEDIA_EXTENSIONS = Set.of("jpg", "jpeg", "png", "mp4", "heic");
 
     private static boolean isMediaFile(Path p) {
         final String fileName = p.getFileName().toString();

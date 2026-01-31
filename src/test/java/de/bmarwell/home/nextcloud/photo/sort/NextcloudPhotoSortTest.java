@@ -59,6 +59,31 @@ class NextcloudPhotoSortTest {
     }
 
     @Test
+    void testGetTargetPath_heic_lowercase() throws IOException {
+        // given
+        Path inputDir = tempDir.resolve("input_heic");
+        Files.createDirectories(inputDir);
+        Path outputDir = tempDir.resolve("output_heic");
+        Files.createDirectories(outputDir);
+
+        Path inputFile = inputDir.resolve("test.HEIC");
+        Files.writeString(inputFile, "test content");
+
+        NextcloudPhotoSort app = new NextcloudPhotoSort();
+        new CommandLine(app).parseArgs("-i", inputDir.toString(), "-o", outputDir.toString());
+        app.spec = new CommandLine(app).getCommandSpec();
+
+        ZonedDateTime date = LocalDateTime.of(2_023, 1, 5, 13, 5, 7).atZone(ZoneId.systemDefault());
+
+        // when
+        Path targetPath = app.getTargetPath(inputFile, date);
+
+        // then
+        String fileName = targetPath.getFileName().toString();
+        assertTrue(fileName.endsWith(".heic"), "Extension should be lowercase .heic, but was: " + fileName);
+    }
+
+    @Test
     void testMoveAsync_deletesSourceIfTargetExists() throws IOException {
         // given
         Path inputDir = tempDir.resolve("input");
