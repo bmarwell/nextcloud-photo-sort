@@ -72,6 +72,9 @@
   </developers>
 
   <scm>
+    <url>https://github.com/bmarwell/nextcloud-photo-sort</url>
+    <developerConnection>git@github.com:bmarwell/nextcloud-photo-sort.git</developerConnection>
+    <tag>HEAD</tag>
   </scm>
 
   <dependencyManagement>
