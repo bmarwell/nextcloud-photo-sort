@@ -29,7 +29,6 @@ import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
 
-@SuppressWarnings("ALL")
 public class NextcloudPhotoSort implements Callable<Integer> {
 
     @Spec
@@ -88,17 +87,15 @@ public class NextcloudPhotoSort implements Callable<Integer> {
     // internal state
     final AtomicInteger processedFilesCount = new AtomicInteger(0);
 
-    /**
-     * Limits the number of concurrent CPU-intensive tasks.
-     *
-     * <p>CPU-intensive tasks like hashing or metadata extraction can lead to excessive
-     * context switching when too many are run in parallel, especially with virtual threads.
-     * We use a semaphore to limit the concurrency to the number of available processors
-     * minus one, ensuring the system remains responsive while utilizing most of the
-     * CPU capacity.</p>
-     */
+    /// Limits the number of concurrent CPU-intensive tasks.
+    ///
+    /// CPU-intensive tasks like hashing or metadata extraction can lead to excessive
+    /// context switching when too many are run in parallel, especially with virtual threads.
+    /// We use a semaphore to limit the concurrency to the number of available processors,
+    /// ensuring the system remains responsive while utilizing most of the
+    /// CPU capacity.
     private final Semaphore semaphore =
-            new Semaphore(Math.max(1, Runtime.getRuntime().availableProcessors() - 1));
+            new Semaphore(Math.max(1, Runtime.getRuntime().availableProcessors()));
 
     static void main(String[] args) {
         CommandLine commandLine = new CommandLine(new NextcloudPhotoSort());
@@ -106,19 +103,17 @@ public class NextcloudPhotoSort implements Callable<Integer> {
         System.exit(exitCode);
     }
 
-    /**
-     * Entry point of the photo sort application.
-     *
-     * <p>The main logic is divided into two phases:</p>
-     * 1.  **Collection phase**: Scan the input directory and determine the target path for each file.
-     * 2.  **Execution phase**: Perform the actual file movements.
-     *
-     * <p>We do it this way to first gather all required information and validate the work before
-     * touching any files on disk. This allows for better error handling and "dry-run" capabilities.</p>
-     *
-     * @return 0 on success
-     * @throws Exception if any unhandled error occurs during processing
-     */
+    /// Entry point of the photo sort application.
+    ///
+    /// The main logic is divided into two phases:
+    /// 1.  **Collection phase**: Scan the input directory and determine the target path for each file.
+    /// 2.  **Execution phase**: Perform the actual file movements.
+    ///
+    /// We do it this way to first gather all required information and validate the work before
+    /// touching any files on disk. This allows for better error handling and "dry-run" capabilities.
+    ///
+    /// @return 0 on success
+    /// @throws Exception if any unhandled error occurs during processing
     @Override
     public Integer call() throws Exception {
         final List<InOut> inOutTargets = collectTasks();
@@ -140,6 +135,7 @@ public class NextcloudPhotoSort implements Callable<Integer> {
     ///
     /// @return a list of [InOut] records representing planned file moves
     /// @throws InterruptedException if task execution is interrupted
+    @SuppressWarnings("preview")
     private List<InOut> collectTasks() throws InterruptedException {
         try (var scope = StructuredTaskScope.open()) {
             final List<StructuredTaskScope.Subtask<InOut>> tasks = new ArrayList<>();
@@ -151,7 +147,7 @@ public class NextcloudPhotoSort implements Callable<Integer> {
                         break;
                     }
 
-                    if (Files.isDirectory(nextFile) || !isMediaFile(nextFile)) {
+                    if (!isMediaFile(nextFile) || Files.isDirectory(nextFile)) {
                         continue;
                     }
 
@@ -183,16 +179,10 @@ public class NextcloudPhotoSort implements Callable<Integer> {
     ///
     /// @param inOutTargets the list of file moves to perform
     /// @throws InterruptedException if move execution is interrupted
+    @SuppressWarnings("preview")
     private void performMoves(List<InOut> inOutTargets) throws InterruptedException {
         try (var moveScope = StructuredTaskScope.open()) {
-            inOutTargets.forEach(io -> moveScope.fork(() -> {
-                this.semaphore.acquire();
-                try {
-                    return moveAsync(io);
-                } finally {
-                    this.semaphore.release();
-                }
-            }));
+            inOutTargets.forEach(io -> moveScope.fork(() -> moveAsync(io)));
 
             moveScope.join();
         }
@@ -297,6 +287,7 @@ public class NextcloudPhotoSort implements Callable<Integer> {
     ///
     /// @param path the path to the file to process
     /// @return an [InOut] record representing the planned move
+    @SuppressWarnings("NullableProblems")
     InOut processFileAsync(Path path) {
         this.processedFilesCount.incrementAndGet();
         try {
