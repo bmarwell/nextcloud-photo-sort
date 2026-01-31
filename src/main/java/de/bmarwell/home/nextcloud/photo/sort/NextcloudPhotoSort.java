@@ -64,6 +64,12 @@ public class NextcloudPhotoSort implements Callable<Integer> {
             defaultValue = "500")
     int maxFiles;
 
+    @Option(
+            names = {"--flat"},
+            description = "Flat output, i.e. no $YEAR/$MONTH directory",
+            defaultValue = "false")
+    boolean flatOutput = false;
+
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     @Option(
             names = {"-p", "--postscript"},
@@ -328,6 +334,10 @@ public class NextcloudPhotoSort implements Callable<Integer> {
                 // _hash
                 hash,
                 extension.toLowerCase(Locale.ROOT));
+
+        if (this.flatOutput) {
+            return outputDirectory.resolve(targetFileName);
+        }
 
         return outputDirectory
                 .resolve(String.format(Locale.ROOT, "%04d", dateOriginalInstant.getYear()))
