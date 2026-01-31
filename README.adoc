@@ -16,7 +16,7 @@ As the number of files grows, this becomes difficult to manage and navigate.
 
 == Features
 
-* Supports common media formats: `.jpg`, `.jpeg`, `.png`, `.mp4`, `.heic`.
+* Supports common media formats: `.jpg`, `.jpeg`, `.png`, `.mp4`, `.heic`, `.mov`.
 * Intelligent naming: Files are renamed to `YYYY-MM-DDTHHmmSS_hash.ext`.
 * Safe operations: Includes a `--dry-run` mode to preview changes.
 * Flexible: Option for flat output or nested directories.
