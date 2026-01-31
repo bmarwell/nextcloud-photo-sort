@@ -198,8 +198,10 @@ public class NextcloudPhotoSort implements Callable<Integer> {
                 this.spec
                         .commandLine()
                         .getErr()
-                        .println("Creating directory [" + outPath.relativize(this.outputDirectory) + "]");
-                Files.createDirectories(outPath);
+                        .println("Creating directory [" + this.outputDirectory.relativize(outPath) + "]");
+                if (!this.dryRun) {
+                    Files.createDirectories(outPath);
+                }
             } catch (IOException ioException) {
                 // log error and continue
                 this.spec.commandLine().getErr().println("Could not create directory [" + outPath + "].");
@@ -248,7 +250,11 @@ public class NextcloudPhotoSort implements Callable<Integer> {
                 Files.move(io.in(), io.out());
             }
             if (this.verbose) {
-                this.spec.commandLine().getOut().println("Moved [" + io.in() + "] to [" + io.out() + "].");
+                if (this.dryRun) {
+                    this.spec.commandLine().getOut().println("Would move [" + io.in() + "] to [" + io.out() + "].");
+                } else {
+                    this.spec.commandLine().getOut().println("Moved [" + io.in() + "] to [" + io.out() + "].");
+                }
             }
         } catch (IOException ioex) {
             this.spec
