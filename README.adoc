@@ -1,1 +1,65 @@
 = nextcloud-photo-sort
+
+A high-performance tool to sort and organize photos and videos, specifically designed for files synced from mobile phones via WebDAV (e.g. into a Nextcloud directory).
+
+== Purpose
+
+When syncing photos and videos from mobile phones via WebDAV, all files often end up in a single flat directory (often called "AutoUpload" by some sync clients).
+As the number of files grows, this becomes difficult to manage and navigate.
+
+`nextcloud-photo-sort` solves this by:
+
+* **Organizing by Date**: It reads EXIF and other metadata to move files into a structured `YYYY/MM` directory hierarchy.
+* **Deduplication**: It calculates a content hash (XXHash32) for each file. If a file with the same hash already exists at the destination, the source file is safely removed to avoid duplicates.
+* **High Performance**: Built with Java 25+ and utilizing Virtual Threads (Project Loom) for massive parallelization, making it extremely fast even on high-latency network mounts or when processing thousands of files.
+* **Modern Java**: Uses latest Java 25 features (requires `--enable-preview`).
+
+== Features
+
+* Supports common media formats: `.jpg`, `.jpeg`, `.png`, `.mp4`, `.heic`.
+* Intelligent naming: Files are renamed to `YYYY-MM-DDTHHmmSS_hash.ext`.
+* Safe operations: Includes a `--dry-run` mode to preview changes.
+* Flexible: Option for flat output or nested directories.
+* Fallback: Files without valid metadata are moved to an `unsorted` directory for manual review.
+
+== Installation and Execution
+
+=== Building from source
+
+[source,bash]
+----
+mvn package
+----
+
+Running `mvn package` will produce a distribution package using link:https://jreleaser.org/[JReleaser] in `target/jreleaser/assemble/nexcloud-photo-sort/java-archive/`.
+You can find both a `.zip` and a `.tar.gz` file there.
+
+=== Running the tool
+
+After unpacking the distribution, you can use the provided start scripts in the `bin` directory:
+
+* **Linux/macOS**: `bin/nexcloud-photo-sort`
+* **Windows**: `bin\nexcloud-photo-sort.bat`
+
+These scripts automatically handle the classpath and enable necessary JVM flags (like `--enable-preview`).
+
+== Usage
+
+[source,bash]
+----
+./bin/nexcloud-photo-sort -i /path/to/input -o /path/to/output [OPTIONS]
+----
+
+=== Options
+
+* `-i, --input <path>`: Input directory containing unsorted files (required).
+* `-o, --output <path>`: Output directory for the organized structure (required).
+* `-m, --max <count>`: Maximum number of files to process in one run (default: 500).
+* `-d, --dry-run`: Preview actions without moving any files.
+* `-v, --verbose`: Print detailed information about each action.
+* `--flat`: Use a flat output structure instead of `YYYY/MM`.
+* `-p, --postscript <script>`: Path to a script to execute after the tool finishes.
+
+== Requirements
+
+* Java 25 or higher (with preview features enabled).
