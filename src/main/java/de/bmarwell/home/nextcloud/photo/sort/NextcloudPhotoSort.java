@@ -20,7 +20,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.jspecify.annotations.Nullable;
@@ -87,16 +86,6 @@ public class NextcloudPhotoSort implements Callable<Integer> {
     // internal state
     final AtomicInteger processedFilesCount = new AtomicInteger(0);
 
-    /// Limits the number of concurrent CPU-intensive tasks.
-    ///
-    /// CPU-intensive tasks like hashing or metadata extraction can lead to excessive
-    /// context switching when too many are run in parallel, especially with virtual threads.
-    /// We use a semaphore to limit the concurrency to the number of available processors,
-    /// ensuring the system remains responsive while utilizing most of the
-    /// CPU capacity.
-    private final Semaphore semaphore =
-            new Semaphore(Math.max(1, Runtime.getRuntime().availableProcessors()));
-
     static void main(String[] args) {
         CommandLine commandLine = new CommandLine(new NextcloudPhotoSort());
         int exitCode = commandLine.execute(args);
@@ -147,18 +136,11 @@ public class NextcloudPhotoSort implements Callable<Integer> {
                         break;
                     }
 
-                    if (!isMediaFile(nextFile) || Files.isDirectory(nextFile)) {
+                    if (!isMediaFile(nextFile)) {
                         continue;
                     }
 
-                    tasks.add(scope.fork(() -> {
-                        this.semaphore.acquire();
-                        try {
-                            return processFileAsync(nextFile);
-                        } finally {
-                            this.semaphore.release();
-                        }
-                    }));
+                    tasks.add(scope.fork(() -> processFileAsync(nextFile)));
 
                     forkedTasks++;
                 }
@@ -170,6 +152,7 @@ public class NextcloudPhotoSort implements Callable<Integer> {
 
             return tasks.stream()
                     .map(StructuredTaskScope.Subtask::get)
+                    .filter(java.util.Objects::nonNull)
                     .limit(this.maxFiles)
                     .toList();
         }
@@ -286,9 +269,14 @@ public class NextcloudPhotoSort implements Callable<Integer> {
     /// Otherwise, it is moved to the "unsorted" directory.
     ///
     /// @param path the path to the file to process
-    /// @return an [InOut] record representing the planned move
+    /// @return an [InOut] record representing the planned move, or `null` if the path is a directory
     @SuppressWarnings("NullableProblems")
+    @Nullable
     InOut processFileAsync(Path path) {
+        if (Files.isDirectory(path)) {
+            return null;
+        }
+
         this.processedFilesCount.incrementAndGet();
         try {
             final Metadata metadata = ImageMetadataReader.readMetadata(path.toFile());
@@ -320,6 +308,7 @@ public class NextcloudPhotoSort implements Callable<Integer> {
     /// @return the calculated target path
     Path getTargetPath(Path inputFile, ZonedDateTime dateOriginalInstant) {
         String hash = HashUtil.calcHash(this.spec, inputFile);
+
         String extension = inputFile
                 .getFileName()
                 .toString()
