@@ -21,10 +21,11 @@
 
   <groupId>de.bmarwell.home</groupId>
   <artifactId>nextcloud-photo-sort</artifactId>
-  <version>1.0.0-SNAPSHOT</version>
+  <version>1.1.0-SNAPSHOT</version>
   <packaging>jar</packaging>
   <name>Nextcloud Photo Sorter</name>
-  <description>Sort photos</description>
+  <description>A tool to sort Nextcloud photos</description>
+  <url>https://github.com/bmarwell/nextcloud-photo-sort</url>
 
   <inceptionYear>2026</inceptionYear>
 
@@ -62,6 +63,8 @@
     <dependency.palantir.version>2.88.0</dependency.palantir.version>
     <dependency.picocli.version>4.7.7</dependency.picocli.version>
     <dependency.picocli-codegen.version>${dependency.picocli.version}</dependency.picocli-codegen.version>
+
+    <jreleaser.project.links.documentation>https://github.com/bmarwell/nextcloud-photo-sort/blob/main/README.md</jreleaser.project.links.documentation>
   </properties>
 
   <developers>
