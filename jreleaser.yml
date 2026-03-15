@@ -1,0 +1,28 @@
+project:
+  license: EUPL-1.2
+  authors:
+    - bmarwell
+  links:
+    homepage: https://github.com/bmarwell/nextcloud-photo-sort
+    documentation: https://github.com/bmarwell/nextcloud-photo-sort/blob/main/README.md
+
+release:
+  github:
+    owner: bmarwell
+    name: nextcloud-photo-sort
+    overwrite: true
+    sign: true
+    skipTag: false
+
+files:
+  artifacts:
+    - path: target/jreleaser/assemble/nextcloud-photo-sort/java-archive/nextcloud-photo-sort-{{projectVersion}}.jar
+
+hooks:
+  script:
+    success:
+      - run: |
+          mvn versions:set -DnewVersion={{projectNextVersion}}
+          git add pom.xml
+          git commit -m "Next version {{projectNextVersion}}"
+          git push
