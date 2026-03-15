@@ -3,6 +3,7 @@
  */
 package de.bmarwell.home.nextcloud.photo.sort;
 
+import com.drew.imaging.FileType;
 import com.drew.imaging.ImageMetadataReader;
 import com.drew.imaging.ImageProcessingException;
 import com.drew.metadata.Metadata;
@@ -17,6 +18,7 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -285,7 +287,7 @@ public class NextcloudPhotoSort implements Callable<Integer> {
 
         this.processedFilesCount.incrementAndGet();
         try {
-            final Metadata metadata = ImageMetadataReader.readMetadata(path.toFile());
+            final Metadata metadata = readMetadataWithFallback(path);
             final @Nullable ZonedDateTime dateOriginalInstant = CreationDateUtil.getCreationDate(metadata);
 
             if (dateOriginalInstant == null) {
@@ -356,6 +358,11 @@ public class NextcloudPhotoSort implements Callable<Integer> {
 
     private static final Set<String> MEDIA_EXTENSIONS = Set.of("jpg", "jpeg", "png", "mp4", "heic", "mov", "mp");
 
+    /// Maps file extensions to explicit [FileType] hints for formats that the metadata library
+    /// cannot reliably auto-detect (e.g., HEVC-encoded MOV files).
+    private static final Map<String, FileType> EXTENSION_FILE_TYPE_HINTS =
+            Map.of("mov", FileType.QuickTime, "mp4", FileType.Mp4);
+
     private static boolean isMediaFile(Path p) {
         final String fileName = p.getFileName().toString();
         final int lastDot = fileName.lastIndexOf('.');
@@ -365,6 +372,27 @@ public class NextcloudPhotoSort implements Callable<Integer> {
 
         final String extension = fileName.substring(lastDot + 1).toLowerCase(Locale.ROOT);
         return MEDIA_EXTENSIONS.contains(extension);
+    }
+
+    /// Reads metadata from the given path, falling back to an explicit [FileType] hint when
+    /// auto-detection fails (e.g., HEVC-encoded MOV files).
+    private static Metadata readMetadataWithFallback(Path path) throws ImageProcessingException, IOException {
+        try {
+            return ImageMetadataReader.readMetadata(path.toFile());
+        } catch (ImageProcessingException ipe) {
+            final String fileName = path.getFileName().toString();
+            final int lastDot = fileName.lastIndexOf('.');
+            if (lastDot != -1) {
+                final String ext = fileName.substring(lastDot + 1).toLowerCase(Locale.ROOT);
+                final FileType hint = EXTENSION_FILE_TYPE_HINTS.get(ext);
+                if (hint != null) {
+                    try (var inputStream = Files.newInputStream(path)) {
+                        return ImageMetadataReader.readMetadata(inputStream, Files.size(path), hint);
+                    }
+                }
+            }
+            throw ipe;
+        }
     }
 
     /**
